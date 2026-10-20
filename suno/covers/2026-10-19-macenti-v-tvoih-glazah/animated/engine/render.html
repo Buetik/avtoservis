@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><link rel="icon" href="data:,">
+<title>MACENTI eye engine</title>
+<style>html,body{margin:0;background:#040812}</style>
+</head>
+<body>
+<script src="art-layers.js"></script>
+<script src="anim.js"></script>
+<script>
+// Driven by render.js through Playwright: init(cfg) once, then renderFrame(i) per frame.
+// Each frame is POSTed as raw RGBA to the local render server, which pipes it into ffmpeg.
+var anim=null, JOB='';
+window.init=async function(cfg){
+  JOB=cfg.job;
+  var t0=performance.now();
+  var f=new FontFace('CGL','url(fonts/Cormorant_Garamond-500-italic.woff)',{style:'italic',weight:'500'});
+  await f.load(); document.fonts.add(f);
+  anim=new Anim(cfg);
+  if(cfg.title){
+    var img=new Image(); img.src=cfg.title.src; await img.decode();
+    anim.setTitle(img,cfg.title.dx,cfg.title.dy);
+  }
+  return {ms:Math.round(performance.now()-t0), rngCheck:anim.art.rngCheck,
+          glints:[anim.art.glints[0].length,anim.art.glints[1].length], ripples:anim.art.ripples.length,
+          far:anim.art.farStars.length, stars:anim.art.bgStars.length};
+};
+window.renderFrame=async function(i,opt){
+  var t0=performance.now();
+  var im=anim.render(i,opt);
+  var t1=performance.now();
+  var r=await fetch('/frame?job='+encodeURIComponent(JOB)+'&i='+i,{method:'POST',body:im.data});
+  if(!r.ok) throw new Error('post failed '+r.status);
+  return {render:Math.round(t1-t0), post:Math.round(performance.now()-t1)};
+};
+</script>
+</body>
+</html>
